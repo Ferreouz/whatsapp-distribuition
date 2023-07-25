@@ -8,35 +8,54 @@ import * as webhook from './configs/webhook';
 import fetch from 'node-fetch';
 import {Client, Chat,Contact,GroupChat,MessageMedia} from 'whatsapp-web.js'
 import {ChatOpened,MediaOptions} from './structs';
+import { BlobOptions } from 'buffer';
 // import {Request as request} from 'request';
 
-async function createGroup(client: Client, agenteNumber: string, nameCliente: string, clienteNumber: string): Promise<Object| boolean>{
-    const contactId = agenteNumber.replace(/\D/g, '') + "@c.us"
+const BACKUPGROUPNAME = "esperando-ser-usado"
+
+
+async function createGroup(client: Client, agenteIDNumber: string, nameCliente: string, clienteNumber: string): Promise<{result: boolean, id: any}>{
     // const clienteId = clienteNumber.replace(/\D/g, '') + "@c.us"
     try{
-        await client.sendMessage(contactId, 'test');
-        const group = await client.createGroup(nameCliente + " " + clienteNumber.slice(2), [contactId])
+        
+        const group = await client.createGroup(nameCliente + " " + clienteNumber.slice(2), [agenteIDNumber])
         .catch(err=>
-            console.log("ERRO AO CRIAR GRUPO COM CONTATO "+ err)
+            console.log("ERRO AO CRIAR GRUPO COM CONTATO "+ err) 
         )
-        // const group = await client.createGroup(nameCliente + " " + clienteNumber.slice(2), ['553499679717@c.us']).catch(err=> console.log(err))
-        // console.log("HEY HO "+group)
+
         if(typeof group === 'object'){
 
-            if( contactId in group.missingParticipants) return {result: false, id: group.gid};
+            if( agenteIDNumber in group.missingParticipants){
+                const chat: any = await client.getChatById((group.gid as any)._serialize);
+                if('setSubject' in chat) chat.setSubject(BACKUPGROUPNAME)
+
+                return {result: false, id: group.gid};//group created but didnt add anyone
+            }
             return {result: true, id: group.gid}
 
-        } else return false;
+        } else return {result: false, id: false};
 
     }catch(e){
         console.log(e)
         // client.sendMessage("553499679717@c.us", "Transferir deu erro" + e);
-        /**Message wasnt sent */
-        return false;
+        /**Grupo nao foi criado*/
+        return {result: false, id: false};
     }
     
 }
-async function createRedisChat(clienteNumber: string,nomeCliente : string,group: string,id_bot: string,nomeAgente: string,agenteNumber:string): Promise<boolean> {
+export async function getBackupGroup(client: Client): Promise<GroupChat| boolean> {
+    const allchats = await client.getChats();
+    let chosenChat: object | false = false; 
+
+    allchats.every( (chat) => {
+        if(chat.isGroup && chat.name.includes(BACKUPGROUPNAME)){
+            chosenChat = chat;
+            return false;
+        }else return true;
+    })
+    return chosenChat;
+}
+async function createRedisChat(clienteNumber: string,nomeCliente : string,group: string,id_bot: string,nomeAgente: string,agenteIDNumber:string): Promise<boolean> {
 
    
     try {
@@ -52,7 +71,7 @@ async function createRedisChat(clienteNumber: string,nomeCliente : string,group:
             },
             agente:{
                 nome: nomeAgente, 
-                numero: agenteNumber,
+                numero: agenteIDNumber,
             },
             metaData:{
                 timeStarted: moment().tz("America/Sao_Paulo")
@@ -66,7 +85,7 @@ async function createRedisChat(clienteNumber: string,nomeCliente : string,group:
             },
             agente:{
                 nome: nomeAgente, 
-                numero: agenteNumber,
+                numero: agenteIDNumber,
             },
             metaData:{
                 timeStarted: moment().tz("America/Sao_Paulo")
@@ -85,27 +104,24 @@ async function createRedisChat(clienteNumber: string,nomeCliente : string,group:
   
 
 }
-async function endChatGroup(chatOpened: ChatOpened, closeBotConversa = false ): Promise<boolean>{
+async function endChatGroup(chatOpened: ChatOpened, chat: GroupChat ,closeBot = false ): Promise<boolean>{
     try {
         
-        const r = await fetch(
-            `https://backend.botconversa.com.br/api/v1/webhook/subscriber/${chatOpened.cliente.id_bot}/send_flow/`,
-            { 
-                method: 'POST',
-                body: JSON.stringify({ flow: Number(webhook.close.flowID) }), 
-                headers: {'Content-Type': 'application/json', "API-KEY":webhook.close.key} 
-            }
-           
-        );
-        // console.log(r)
-        exportChat(chatOpened);
-        await redis.del(chatOpened.sender);
-        await redis.del(chatOpened.receiver);
-        return true;
+        if(closeBot) closeBotConversa(chatOpened.cliente.id_bot);
 
+        exportChat(chatOpened);
+        redis.del(chatOpened.sender);
+        redis.del(chatOpened.receiver);
+           
+        await chat.removeParticipants([chatOpened.agente.numero]);
+        
     } catch (error) {
-        return false;
+        console.log(error)
     }
+    if('setSubject' in chat){
+        try{chat.setSubject(BACKUPGROUPNAME); chat.revokeInvite();}catch(e){}
+    } 
+    return true;
     
 }
 async function exportChat(chatOpenedGroup: ChatOpened): Promise<void> {
@@ -116,6 +132,18 @@ async function exportChat(chatOpenedGroup: ChatOpened): Promise<void> {
             method: 'POST',
             body: JSON.stringify(chatOpenedGroup), 
             headers: {'Content-Type': 'application/json', "API-KEY":webhook.dump.key} 
+        }
+       
+    );
+    // console.log(r);
+}
+async function closeBotConversa(id_bot: string): Promise<void> {
+    const r = await fetch(
+        `https://backend.botconversa.com.br/api/v1/webhook/subscriber/${id_bot}/send_flow/`,
+        { 
+            method: 'POST',
+            body: JSON.stringify({ flow: Number(webhook.close.flowID) }), 
+            headers: {'Content-Type': 'application/json', "API-KEY":webhook.close.key} 
         }
        
     );

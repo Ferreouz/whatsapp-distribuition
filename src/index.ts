@@ -1,8 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const { createGroup, getRedisChat, createRedisChat, endChatGroup, messageMediaOptions, setGroupPicture, updateChatOpened } = require("./functions");
+const { createGroup, getRedisChat, createRedisChat, endChatGroup, messageMediaOptions, setGroupPicture, updateChatOpened,getBackupGroup } = require("./functions");
 const qrcode = require('qrcode');
 const { shortcuts, emoteBot, emoteError, shortcutKey } = require("./shortcuts")
-
 
 import express, { Express, Request, Response } from 'express';
 import { Chat, WAState, Contact, Message, MessageMedia, GroupNotification, GroupChat } from 'whatsapp-web.js';
@@ -12,7 +11,7 @@ let html: String = "<h3> Tudo de acordo </h3>";
 
 
 const client = new Client({
-    authStrategy: new LocalAuth({ clientId: "myself" }),
+    authStrategy: new LocalAuth({ clientId: "myrealself" }),
     puppeteer: {
         executablePath: '/usr/bin/google-chrome-stable',
     }
@@ -147,7 +146,7 @@ client.on('group_join', async (notification: GroupNotification) => {
         client.sendMessage(chatOpened.sender, emoteError + " MENSAGENS DO CLIENTE NÃO ENVIADAS");
     }
     updateChatOpened(chatOpened);
-
+    //////
 
 });
 client.on('ready', async () => {
@@ -162,17 +161,18 @@ client.on('ready', async () => {
     // });
     // console.log(groups)
     console.log("ON")
+
 });
 client.on('disconnected', async (reason: WAState | "NAVIGATION") => {
     console.log(reason)
 });
-client.on('group_leave', async (groupNotification: any) => {
+client.on('group_leave', async (groupNotification: GroupNotification) => {
     const chatOpened: false | ChatOpened = await getRedisChat(groupNotification.chatId);
 
 
     if (chatOpened) {
         // const chat = groupNotification.getChat();
-        // await endChatGroup(chatOpened, true);
+        await endChatGroup(chatOpened, await groupNotification.getChat(), true);
     }
 
 });
@@ -191,27 +191,57 @@ app.post("/new", async (req: Request, res: Response) => {
         const clienteNumber: string = req.body.clienteNumber;
         let clienteNome: string = req.body.clienteNome || "";
         const id_bot: string = req.body.id_bot;
-        const agenteNumber: string = req.body.agenteNumber// '553499679717'
-        const nomeAgente: string = req.body.agenteNome//'Gabriel'
+        let agenteNumber: string = req.body.agenteNumber
+        const nomeAgente: string = req.body.agenteNome
 
 
         if (!clienteNumber || !id_bot || !agenteNumber) {
             return res.sendStatus(400);
         }
+        const agenteIDNumber = agenteNumber.replace(/\D/g, '') + '@c.us';
 
         if (clienteNome === "") {
             const contact: Contact = await client.getContactById(clienteNumber.replace(/\D/g, '') + '@c.us');
             clienteNome = contact.name || contact.pushname || contact.shortName || contact.verifiedName || "";
         }
-
-        const group: object = await createGroup(client, agenteNumber, clienteNome, clienteNumber);
-        //HANDLE group not created
+        //TODO: use backup group first, if dont have one: create
+        const group: ReturnType<typeof createGroup> = await createGroup(client, agenteIDNumber, clienteNome, clienteNumber);
+        let chatCreatedGroup: any| GroupChat;
+        if(!group.result){
+            if(!group.id){
+                const backupGroup: GroupChat = await getBackupGroup(client);
+                if(backupGroup){
+                    backupGroup.setSubject(clienteNome + " " + clienteNumber.slice(2))
+                    chatCreatedGroup = backupGroup;
+                    group.id = backupGroup.id;
+                }
+            }else {
+                //agente nao é possivel ser convidado
+            }
+        }
+    
         if ('id' in group) {
             const groupID: string = (group.id as any)._serialized;
-            const created: boolean = await createRedisChat(clienteNumber, clienteNome, groupID, id_bot, nomeAgente, agenteNumber);
-            if (!created) throw new Error('Group not created! 2');
-        } else throw new Error('Group not created! 1');
+            const created: boolean = await createRedisChat(clienteNumber, clienteNome, groupID, id_bot, nomeAgente, agenteIDNumber);
+            if (!created) throw new Error('REDIS ERROR' );
+            
+            chatCreatedGroup = await client.getChatById(groupID);
 
+            chatCreatedGroup.addParticipants([agenteIDNumber]);//
+
+            // const participants = chatCreatedGroup.participants;
+            // let agentInside = false;
+            // participants.forEach((participant: object) => {
+            //     if('id' in participant){
+            //         if((participant.id as any)._serialized === agenteIDNumber) agentInside = true;
+            //     }
+            //     console.log(participant)
+            // }); 
+            // if(!agentInside){
+            const inviteCode = await chatCreatedGroup.getInviteCode();
+            client.sendMessage(agenteIDNumber, "https://chat.whatsapp.com/"+ inviteCode)
+            // }
+        } else throw new Error('Group not created! 1');
 
     } catch (e) {
         console.log(e);

@@ -3,3 +3,5 @@
 .env
 .env.backup
 .env.production
+/.wwebjs_auth
+/.wwebjs_cache

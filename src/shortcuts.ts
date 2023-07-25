@@ -36,14 +36,11 @@ async function finalizar(client: Client, chatOpenedGroup: ChatOpened, message: M
         const chat: GroupChat|any = await message.getChat();
         if(!('leave' in chat))throw new Error('Chat is not group'); 
         
-        const ended = await endChatGroup(chatOpenedGroup, true );
-        if(!ended) return false;
-        chat.removeParticipants([chatOpenedGroup.sender]);
-        
+        const ended = await endChatGroup(chatOpenedGroup, chat , true );
         // chat.leave();
         // chat.delete();
  
-        return true;
+        return ended;
     }catch(e){
         console.log(e)
         return false;
