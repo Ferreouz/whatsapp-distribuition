@@ -12,13 +12,16 @@ export async function shortcuts( client: Client, chatOpenedGroup: ChatOpened, me
     let type = 'message';
     let success = false;
   
+
     switch(shortcut){
+        //MESSAGE SHORTCUTS
         case 'dia':
             success = await bomDia(client, chatOpenedGroup, message);
             break;
         case 'tarde':
             success = await boaTarde(client, chatOpenedGroup, message);
             break;
+        //END SHORTCUTS
         case 'fim':
             await message.react(emoteBot); 
             success = await finalizar(client, chatOpenedGroup, message);
@@ -31,6 +34,7 @@ export async function shortcuts( client: Client, chatOpenedGroup: ChatOpened, me
 
     return;
 }
+
 async function finalizar(client: Client, chatOpenedGroup: ChatOpened, message: Message): Promise<boolean>{
     try{
         const chat: GroupChat|any = await message.getChat();
@@ -47,6 +51,85 @@ async function finalizar(client: Client, chatOpenedGroup: ChatOpened, message: M
     };
 
 }
+
+async function bomDia(client: Client, chatOpenedGroup: ChatOpened, message: Message): Promise<boolean>{
+    const nome = chatOpenedGroup.cliente.nome;
+    const nomeAgente = chatOpenedGroup.agente.nome;
+    const setor = chatOpenedGroup.agente.setor;
+    let msg: string = "";
+
+    switch(setor){
+        case 'SUPORTE':
+            msg = `Bom dia ${nome}, como vai? Meu nome é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?`;
+            break;
+        case 'VENDAS':
+            msg = `Bom dia ${nome}, me chamo ${nomeAgente} sou da RastrearSat, tudo bem? Em qual bairro você mora?`;
+            break;
+        default:
+            msg = `Bom dia ${nome}, como vai? Meu nome é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?`;
+            break;
+    }
+
+    const args = {
+        client, message, 
+        texto: msg, 
+        sendTo: chatOpenedGroup.receiver
+    }
+
+    return await sendText(args)
+
+}
+async function boaTarde(client: Client, chatOpenedGroup: ChatOpened, message: Message): Promise<boolean>{
+    const nome = chatOpenedGroup.cliente.nome;
+    const nomeAgente = chatOpenedGroup.agente.nome;
+    const setor = chatOpenedGroup.agente.setor;
+    let msg: string = "";
+
+    switch(setor){
+        case 'SUPORTE':
+            msg = `Boa tarde ${nome}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?`;
+            break;
+        case 'VENDAS':
+            msg = `Boa tarde ${nome}, me chamo ${nomeAgente} sou da RastrearSat, tudo bem? Em qual bairro você mora?`;
+            break;
+        default:
+            msg = `Boa tarde ${nome}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?`;
+            break;
+    }
+    const args = {
+        client, message, 
+        texto: msg, sendTo: chatOpenedGroup.receiver
+    }
+
+    return await sendText(args)
+
+}
+async function tags(client: Client, chatOpenedGroup: ChatOpened, message: Message): Promise<boolean>{
+    const nome = chatOpenedGroup.cliente.nome;
+    const nomeAgente = chatOpenedGroup.agente.nome;
+    const setor = chatOpenedGroup.agente.setor;
+    let msg: string = "";
+
+    switch(setor){
+        case 'SUPORTE':
+            msg = `Boa tarde ${nome}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?`;
+            break;
+        case 'VENDAS':
+            msg = `Boa tarde ${nome}, me chamo ${nomeAgente} sou da RastrearSat, tudo bem? Em qual bairro você mora?`;
+            break;
+        default:
+            msg = `Boa tarde ${nome}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?`;
+            break;
+    }
+    const args = {
+        client, message, 
+        texto: msg, sendTo: chatOpenedGroup.receiver
+    }
+
+    return await sendText(args)
+
+}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
 async function sendText(args: { client: Client; message:Message; texto: string; sendTo: string }): Promise<boolean>{
     let options:MediaOptions = { sendAudioAsVoice: true}
 
@@ -61,32 +144,5 @@ async function sendText(args: { client: Client; message:Message; texto: string; 
     }catch(e){
         return false;
     };
-
-}
-
-async function bomDia(client: Client, chatOpenedGroup: ChatOpened, message: Message): Promise<boolean>{
-    const nome = chatOpenedGroup.cliente.nome;
-    const nomeAgente = chatOpenedGroup.agente.nome;
-    const msg = `Boa tarde ${nome}, como vai? Eu sou ${nomeAgente} da RastrearSat👋. Em  que posso te ajudar?`;
-
-    const args = {
-        client, message, 
-        texto: msg, sendTo: chatOpenedGroup.receiver
-    }
-
-    return await sendText(args)
-
-}
-async function boaTarde(client: Client, chatOpenedGroup: ChatOpened, message: Message): Promise<boolean>{
-    const nome = chatOpenedGroup.cliente.nome;
-    const nomeAgente = chatOpenedGroup.agente.nome;
-    const msg = `Boa tarde ${nome}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em  que posso te ajudar?`;
-
-    const args = {
-        client, message, 
-        texto: msg, sendTo: chatOpenedGroup.receiver
-    }
-
-    return await sendText(args)
 
 }

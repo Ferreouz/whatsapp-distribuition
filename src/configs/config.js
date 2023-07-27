@@ -8,7 +8,7 @@ const config = {
     port: (process.env.REDIS_PORT) || 6379,
     db: (process.env.REDIS_DB) || 0,
   },
-  webook:{
+  webhook:{
     dump:{
       url:(process.env.DUMP_URL) || "",
       key:(process.env.DUMP_KEY) || "",
@@ -16,6 +16,9 @@ const config = {
     close:{
       url:(process.env.FLOW_ID) || "",
       flowID:(process.env.CLOSE_FLOW_ID) || "",
+    },
+    error:{
+      url:(process.env.ERROR_URL) || "",
     },
   }
 }

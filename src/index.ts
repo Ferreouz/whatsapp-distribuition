@@ -1,17 +1,19 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const { createGroup, getRedisChat, createRedisChat, endChatGroup, messageMediaOptions, setGroupPicture, updateChatOpened,getBackupGroup } = require("./functions");
+const { notifyAdmin,getRedisChat, endChatGroup, messageMediaOptions, setGroupPicture, updateChatOpened } = require("./functions");
 const qrcode = require('qrcode');
 const { shortcuts, emoteBot, emoteError, shortcutKey } = require("./shortcuts")
+const redis = require("./configs/redis");
+const moment = require('moment-timezone');
 
 import express, { Express, Request, Response } from 'express';
 import { Chat, WAState, Contact, Message, MessageMedia, GroupNotification, GroupChat } from 'whatsapp-web.js';
-import { ChatOpened, MediaOptions } from './structs';
+import { ChatOpened, MediaOptions, Group } from './structs';
 
 let html: String = "<h3> Tudo de acordo </h3>";
-
+let CONNECTED_NUMBER: string;
 
 const client = new Client({
-    authStrategy: new LocalAuth({ clientId: "myrealself" }),
+    authStrategy: new LocalAuth({ clientId: "myreallself" }),
     puppeteer: {
         executablePath: '/usr/bin/google-chrome-stable',
     }
@@ -128,7 +130,12 @@ client.on('group_join', async (notification: GroupNotification) => {
 
             } else
                 if (oldMsg.hasMedia) {
-                    finalMessage = finalMessage + emoteMessage + ` _${oldMsg.type.toUpperCase()}_\n`;
+                    var mediaType: string = (oldMsg.type.includes('audio') || oldMsg.type.includes('ptt')) ? 'AUDIO'
+                        : (oldMsg.type.includes('video')) ? 'VIDEO'
+                            : (oldMsg.type.includes('image')) ? 'IMAGEM'
+                                : 'DOCUMENTO';
+
+                    finalMessage = finalMessage + emoteMessage + ` _${mediaType}_\n`;
                     const attachmentData = await oldMsg.downloadMedia();
                     client.sendMessage(chatOpened.sender, attachmentData, messageMediaOptions(attachmentData));
                 }
@@ -160,7 +167,8 @@ client.on('ready', async () => {
     //     }
     // });
     // console.log(groups)
-    console.log("ON")
+    console.log("ON") 
+    CONNECTED_NUMBER = client.info.wid._serialized;
 
 });
 client.on('disconnected', async (reason: WAState | "NAVIGATION") => {
@@ -193,62 +201,45 @@ app.post("/new", async (req: Request, res: Response) => {
         const id_bot: string = req.body.id_bot;
         let agenteNumber: string = req.body.agenteNumber
         const nomeAgente: string = req.body.agenteNome
-
-
+        let setorAgente: string = req.body.setorAgente || "NA";
+        
+        
         if (!clienteNumber || !id_bot || !agenteNumber) {
             return res.sendStatus(400);
         }
-        const agenteIDNumber = agenteNumber.replace(/\D/g, '') + '@c.us';
-
         if (clienteNome === "") {
             const contact: Contact = await client.getContactById(clienteNumber.replace(/\D/g, '') + '@c.us');
             clienteNome = contact.name || contact.pushname || contact.shortName || contact.verifiedName || "";
         }
-        //TODO: use backup group first, if dont have one: create
-        const group: ReturnType<typeof createGroup> = await createGroup(client, agenteIDNumber, clienteNome, clienteNumber);
-        let chatCreatedGroup: any| GroupChat;
-        if(!group.result){
-            if(!group.id){
-                const backupGroup: GroupChat = await getBackupGroup(client);
-                if(backupGroup){
-                    backupGroup.setSubject(clienteNome + " " + clienteNumber.slice(2))
-                    chatCreatedGroup = backupGroup;
-                    group.id = backupGroup.id;
-                }
-            }else {
-                //agente nao é possivel ser convidado
-            }
+        const group = new Group(client, redis,
+            {
+                agenteNumber: agenteNumber, nomeAgente: nomeAgente, setorAgente: setorAgente,
+                nameCliente: clienteNome, clienteNumber: clienteNumber, id_bot: id_bot,
+                timeStarted: moment().tz("America/Sao_Paulo").format('YYYY-MM-DD HH:mm:ss')
+            }, CONNECTED_NUMBER
+        )
+        const result = await group.create();
+        if(!result.created){
+            notifyAdmin(result.message);
+            return res.sendStatus(400);
         }
-    
-        if ('id' in group) {
-            const groupID: string = (group.id as any)._serialized;
-            const created: boolean = await createRedisChat(clienteNumber, clienteNome, groupID, id_bot, nomeAgente, agenteIDNumber);
-            if (!created) throw new Error('REDIS ERROR' );
-            
-            chatCreatedGroup = await client.getChatById(groupID);
-
-            chatCreatedGroup.addParticipants([agenteIDNumber]);//
-
-            // const participants = chatCreatedGroup.participants;
-            // let agentInside = false;
-            // participants.forEach((participant: object) => {
-            //     if('id' in participant){
-            //         if((participant.id as any)._serialized === agenteIDNumber) agentInside = true;
-            //     }
-            //     console.log(participant)
-            // }); 
-            // if(!agentInside){
-            const inviteCode = await chatCreatedGroup.getInviteCode();
-            client.sendMessage(agenteIDNumber, "https://chat.whatsapp.com/"+ inviteCode)
-            // }
-        } else throw new Error('Group not created! 1');
-
     } catch (e) {
-        console.log(e);
+        notifyAdmin(e);
         return res.sendStatus(400);
     }
 
     res.sendStatus(201);
+});
+app.get("/healthz", async (req: Request, res: Response) => {
+
+    let retorno: any; 
+    try {
+        retorno = await client.getState();
+    } catch (error) {
+        retorno = error;
+    }
+    res.send({"status":retorno, "CONNECTED_NUMBER": CONNECTED_NUMBER});
+
 });
 
 client.initialize();
