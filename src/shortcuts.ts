@@ -1,5 +1,5 @@
 import {Client,GroupChat, Message} from 'whatsapp-web.js'
-import {ChatOpened,MediaOptions} from './structs';
+import {ChatOpened,MediaOptions, Functions} from './structs';
 
 export const emoteBot = '🤖';
 export const emoteError = '❌';
@@ -40,7 +40,7 @@ async function finalizar(client: Client, chatOpenedGroup: ChatOpened, message: M
         const chat: GroupChat|any = await message.getChat();
         if(!('leave' in chat))throw new Error('Chat is not group'); 
         
-        const ended = await endChatGroup(chatOpenedGroup, chat , true );
+        const ended = await Functions.endChatGroup(chatOpenedGroup, chat , true );
         // chat.leave();
         // chat.delete();
  

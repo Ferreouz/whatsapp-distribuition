@@ -1,5 +1,5 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const { notifyAdmin,getRedisChat, endChatGroup, messageMediaOptions, setGroupPicture, updateChatOpened } = require("./functions");
+const {getRedisChat,setGroupPicture,messageMediaOptions} = require("./functions");
 const qrcode = require('qrcode');
 const { shortcuts, emoteBot, emoteError, shortcutKey } = require("./shortcuts")
 const redis = require("./configs/redis");
@@ -7,7 +7,7 @@ const moment = require('moment-timezone');
 
 import express, { Express, Request, Response } from 'express';
 import { Chat, WAState, Contact, Message, MessageMedia, GroupNotification, GroupChat } from 'whatsapp-web.js';
-import { ChatOpened, MediaOptions, Group } from './structs';
+import { ChatOpened, MediaOptions, Group,Functions } from './structs';
 
 let html: String = "<h3> Tudo de acordo </h3>";
 let CONNECTED_NUMBER: string;
@@ -152,7 +152,7 @@ client.on('group_join', async (notification: GroupNotification) => {
         chatOpened.sentOldMsg = 'no'
         client.sendMessage(chatOpened.sender, emoteError + " MENSAGENS DO CLIENTE NÃO ENVIADAS");
     }
-    updateChatOpened(chatOpened);
+    Functions.updateChatOpened(chatOpened);
     //////
 
 });
@@ -180,7 +180,7 @@ client.on('group_leave', async (groupNotification: GroupNotification) => {
 
     if (chatOpened) {
         // const chat = groupNotification.getChat();
-        await endChatGroup(chatOpened, await groupNotification.getChat(), true);
+        await Functions.endChatGroup(chatOpened, (await groupNotification.getChat()), true);
     }
 
 });
@@ -220,11 +220,18 @@ app.post("/new", async (req: Request, res: Response) => {
         )
         const result = await group.create();
         if(!result.created){
-            notifyAdmin(result.message);
+            Functions.notifyAdmin(result.message);
             return res.sendStatus(400);
         }
     } catch (e) {
-        notifyAdmin(e);
+        let error: string = ""; // error under useUnknownInCatchVariables 
+        if (typeof e === "string") {
+            error = e;
+        } else if (e instanceof Error) {
+            error = e.message // works, `e` narrowed to Error
+        }
+        
+        Functions.notifyAdmin(error);
         return res.sendStatus(400);
     }
 

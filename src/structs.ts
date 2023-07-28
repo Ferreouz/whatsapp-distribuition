@@ -1,6 +1,10 @@
+import { Client, Chat, Contact, GroupChat, MessageMedia, GroupParticipant, Message } from 'whatsapp-web.js'
 import { Redis } from 'ioredis';
-import { Client, Chat, Contact, GroupChat, MessageMedia, GroupParticipant } from 'whatsapp-web.js'
+import fetch from 'node-fetch';
+import * as webhook from './configs/webhook';
+
 const redis = require("./configs/redis");
+const moment = require('moment-timezone');
 
 export type ChatOpened = {
     /** The number that the sending message should arrive*/
@@ -228,4 +232,138 @@ export class Group {
         ERROR: ${error}\n${stack}`;
 
     }
+}
+export class Functions{
+    static BACKUPGROUPNAME = "esperando-ser-usado"
+
+    static async endChatGroup(chatOpened: ChatOpened, chat: GroupChat|Chat ,closeBot = false ): Promise<boolean>{
+        try {
+            if(!('removeParticipants' in chat)) return false;
+
+            if(closeBot) this.closeBotConversa(chatOpened.cliente.id_bot);
+    
+            this.exportChat(chatOpened);
+            redis.del(chatOpened.sender);
+            redis.del(chatOpened.receiver);
+               
+            await chat.removeParticipants([chatOpened.agente.numero]);
+            
+        } catch (error) {
+            console.log(error)
+        }
+        if('setSubject' in chat){
+            try{
+                chat.setSubject(this.BACKUPGROUPNAME);
+                chat.archive(); 
+                chat.revokeInvite();
+            }
+                catch(e){}
+        } 
+        return true;
+        
+    }
+    static async closeBotConversa(id_bot: string): Promise<void> {
+        const r = await fetch(
+            `https://backend.botconversa.com.br/api/v1/webhook/subscriber/${id_bot}/send_flow/`,
+            { 
+                method: 'POST',
+                body: JSON.stringify({ flow: Number(webhook.close.flowID) }), 
+                headers: {'Content-Type': 'application/json', "API-KEY":webhook.close.key} 
+            }
+           
+        );
+        // console.log(r);
+    }
+    static async exportChat(chatOpenedGroup: ChatOpened): Promise<void> {
+        chatOpenedGroup.metaData.timeEnded = moment().tz("America/Sao_Paulo").format('YYYY-MM-DD HH:mm:ss') 
+        const r = await fetch(
+            webhook.dump.url,
+            { 
+                method: 'POST',
+                body: JSON.stringify(chatOpenedGroup), 
+                headers: {'Content-Type': 'application/json', "API-KEY":webhook.dump.key} 
+            }
+           
+        );
+        // console.log(r);
+    }
+
+    static async  notifyAdmin(error: string):Promise<void> {
+        const r = await fetch(
+            webhook.error.url,
+            { 
+                method: 'POST',
+                body: JSON.stringify({message: error}), 
+                headers: {'Content-Type': 'application/json', "API-KEY":webhook.dump.key} 
+            }
+           
+        );
+    }
+    static async updateChatOpened(chatOpened: ChatOpened): Promise<void>{
+        await redis.set(chatOpened.sender, JSON.stringify(chatOpened))
+    }
+    
+}
+export class Shortcut {
+    static KEY = "#"
+
+    private type : 'message' | 'end' | 'both'| null = null;
+    private hasEndTag: boolean = false;
+    private entryPoint: string;
+
+    private chatOpen: ChatOpened;
+    private message: Message;
+
+    private client: Client;
+    private redis: Redis;
+
+
+    constructor(client: Client, redis: Redis, chatOpen: ChatOpened, message:Message, entryPoint: string) {
+    //    this.type = 'message'
+    //    this.hasEndTag = false;
+       this.entryPoint = entryPoint.replace(Shortcut.KEY, '');
+
+       this.chatOpen = chatOpen;
+       this.message = message;
+       
+
+       if (!(client instanceof Client)) console.log('!(client instanceof Client) ERROR')
+       this.client = client;
+
+       if (!(redis instanceof Redis)) console.log('!(redis instanceof Redis) ERROR');
+       this.redis = redis;
+
+
+    }
+    async end(): Promise<void>{
+        try{
+            const chat: GroupChat|any = await this.message.getChat();
+            if(!('leave' in chat))throw new Error('Chat is not group'); 
+            
+           await Functions.endChatGroup(this.chatOpen, chat , true );
+            // chat.leave();
+            // chat.delete();
+        }catch(e){
+            console.log(e)
+        };
+    
+    }
+    async sendText( texto: string, sendTo: string): Promise<boolean>{
+        let options:MediaOptions = { sendAudioAsVoice: true}
+    
+        // client, texto, message, sendTo
+        try{
+            if(this.message.hasQuotedMsg){
+                const quoted = await this.message.getQuotedMessage();
+                options.quotedMessageId =  quoted.id._serialized;
+            }
+            this.client.sendMessage(sendTo, texto, options);
+            return true;
+        }catch(e){
+            return false;
+        };
+    
+    }
+ 
+
 }
