@@ -1,12 +1,14 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const {getRedisChat,setGroupPicture,messageMediaOptions} = require("./functions");
 const qrcode = require('qrcode');
 const redis = require("./configs/redis");
 const moment = require('moment-timezone');
 
-import express, { Express, Request, Response } from 'express';
-import { Chat, WAState, Contact, Message, MessageMedia, GroupNotification, GroupChat } from 'whatsapp-web.js';
-import { ChatOpened, MediaOptions, Group,Functions,Shortcut,VendasShortcut } from './structs';
+import express, { Request, Response } from 'express';
+import { Chat, WAState, Contact, Message, GroupNotification } from 'whatsapp-web.js';
+import {ChatOpened, MediaOptions} from './types';
+import {Functions} from './functions';
+import {Group} from './group';
+import { Shortcut,VendasShortcut } from './shortcuts';
 
 let html: String = "<h3> Tudo de acordo </h3>";
 let CONNECTED_NUMBER: string;
@@ -18,7 +20,7 @@ const client = new Client({
     }
 });
 client.on('message', async (message: Message) => {
-    const chatOpened: ChatOpened = await getRedisChat(message.from);
+    const chatOpened: ChatOpened| false = await Functions.getRedisChat(message.from);
     const chat = await message.getChat();
 
 
@@ -32,10 +34,10 @@ client.on('message', async (message: Message) => {
     if (isGroup && message.body.startsWith(Shortcut.KEY)) {
         switch(chatOpened.agente.setor){
             case 'VENDAS':
-                new VendasShortcut(client,redis,chatOpened,message, message.body).check();
+                new VendasShortcut(client, chatOpened,message, message.body).check();
                 break;
             default:
-                new Shortcut(client,redis,chatOpened,message, message.body).check();
+                new Shortcut(client, chatOpened,message, message.body).check();
                 break;
         }
         return;
@@ -58,24 +60,27 @@ client.on('message', async (message: Message) => {
                     let c = vcard.split("waid=").pop();
                     if (typeof c === 'undefined') throw new Error('Erro envio contato!');
                     c = c.split(":")[0];
-                    const contact = await client.getContactById(c + "@c.us")
-
+                    const contact = await client.getContactById(c + "@c.us");
                     client.sendMessage(chatOpened.receiver, contact, msgOptions);
                 });
             } else
 
                 //image, video, audio, sticker   
                 if (message.hasMedia) {
-                    console.log(message)
                     const attachmentData = await message.downloadMedia();
 
                     if (message.hasQuotedMsg) {
                         const quoted = await message.getQuotedMessage();
-                        msgOptions = messageMediaOptions(attachmentData, quoted.id._serialized)
-                    } else msgOptions = messageMediaOptions(attachmentData)
+                        msgOptions = Functions.messageMediaOptions(attachmentData, quoted.id._serialized)
+                    } else msgOptions = Functions.messageMediaOptions(attachmentData);
+
+                    //IF MEDIA HAS CAPTION
+                    if((message.body !== '')) msgOptions.caption = message.body;
                     client.sendMessage(chatOpened.receiver, attachmentData, msgOptions);
-                    //normal chat     
-                } else {
+
+                } 
+                //normal chat     
+                else {
                     if (message.hasQuotedMsg) {
                         const quoted = await message.getQuotedMessage();
                         msgOptions.quotedMessageId = quoted.id._serialized;
@@ -102,12 +107,12 @@ client.on('qr', (qr: String) => {
 });
 client.on('group_join', async (notification: GroupNotification) => {
     const chat = await notification.getChat();
-    const chatOpened: ChatOpened = await getRedisChat(notification.chatId);
+    const chatOpened: ChatOpened | false = await Functions.getRedisChat(notification.chatId);
 
 
     if (!chatOpened || !chat ) return;
     //UPDATE group photo
-    if (!('hasPhoto' in chatOpened)) setGroupPicture(client, chat, chatOpened);
+    if (!('hasPhoto' in chatOpened)) Functions.setGroupPicture(client, chat, chatOpened);
 
     if('sentOldMsg' in chatOpened) return;
 
@@ -141,11 +146,17 @@ client.on('group_join', async (notification: GroupNotification) => {
                     var mediaType: string = (oldMsg.type.includes('audio') || oldMsg.type.includes('ptt')) ? 'AUDIO'
                         : (oldMsg.type.includes('video')) ? 'VIDEO'
                             : (oldMsg.type.includes('image')) ? 'IMAGEM'
+                                : (oldMsg.type.includes('sticker')) ? 'FIGURINHA'
                                 : 'DOCUMENTO';
 
                     finalMessage = finalMessage + emoteMessage + ` _${mediaType}_\n`;
                     const attachmentData = await oldMsg.downloadMedia();
-                    client.sendMessage(chatOpened.sender, attachmentData, messageMediaOptions(attachmentData));
+                    const options = Functions.messageMediaOptions(attachmentData);
+                    
+                    //CAPTION
+                    if((oldMsg.body !== '')) options.caption = oldMsg.body;
+
+                    client.sendMessage(chatOpened.sender, attachmentData, options);
                 }
                 else {
                     finalMessage = finalMessage + emoteMessage + `"${oldMsg.body}"\n`;
@@ -185,7 +196,7 @@ client.on('disconnected', async (reason: WAState | "NAVIGATION") => {
     console.log(reason)
 });
 client.on('group_leave', async (groupNotification: GroupNotification) => {
-    const chatOpened: false | ChatOpened = await getRedisChat(groupNotification.chatId);
+    const chatOpened: false | ChatOpened = await Functions.getRedisChat(groupNotification.chatId);
 
 
     if (chatOpened) {
