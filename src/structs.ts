@@ -17,6 +17,9 @@ export type ChatOpened = {
     /** If messages that were sent before the ChatOpened*/
     sentOldMsg?: 'yes' | 'no';
 
+    /** Tag attributed when the chat was ended*/
+    tag?: string;
+
     /**Client talking with the BOT */
     cliente: {
         /** Bot Conversa ID for exchange of information*/
@@ -139,7 +142,7 @@ export class Group {
                 }
                 this.groupChat = backupGroup;
                 this.groupChat.setSubject(subject);
-                if(this.groupChat.archived) this.groupChat.unarchive();
+                if (this.groupChat.archived) this.groupChat.unarchive();
 
             } else {
                 const chat: GroupChat | null = await this.getGroupById((newGroup.gid as any)._serialized);
@@ -154,9 +157,9 @@ export class Group {
             const participants = this.groupChat.participants;
             let agentInside = false;
             participants.forEach((participant: GroupParticipant) => {
-                if(participant.id._serialized === this.agentChat.agente.numero) agentInside = true;
-            }); 
-            if(!agentInside) this.groupChat.addParticipants([this.agentChat.agente.numero]);
+                if (participant.id._serialized === this.agentChat.agente.numero) agentInside = true;
+            });
+            if (!agentInside) this.groupChat.addParticipants([this.agentChat.agente.numero]);
 
             /**SEND INVITE LINK */
             const inviteCode = await this.groupChat.getInviteCode();
@@ -225,91 +228,99 @@ export class Group {
 
     async setError(error: string, critical = false, stack = ""): Promise<void> {
         if (critical) this.retorno.created = false;
-        if(stack) stack = `STACK: ${stack}\n`
-        
+        if (stack) stack = `STACK: ${stack}\n`
+
         this.retorno.message = this.retorno.message +
             `AGENT: ${this.agentChat.agente.numero}, CLIENT: ${this.agentChat.receiver}
         ERROR: ${error}\n${stack}`;
 
     }
 }
-export class Functions{
+export class Functions {
     static BACKUPGROUPNAME = "esperando-ser-usado"
+    static EMOTE_BOT = "🤖"
+    static EMOTE_ERROR = '❌'
 
-    static async endChatGroup(chatOpened: ChatOpened, chat: GroupChat|Chat ,closeBot = false ): Promise<boolean>{
+    static async endChatGroup(chatOpened: ChatOpened, chat: GroupChat | Chat, closeBot = false): Promise<boolean> {
         try {
-            if(!('removeParticipants' in chat)) return false;
+            if (!('removeParticipants' in chat)) return false;
 
-            if(closeBot) this.closeBotConversa(chatOpened.cliente.id_bot);
-    
+            if (closeBot) this.closeBotConversa(chatOpened.cliente.id_bot);
+
             this.exportChat(chatOpened);
             redis.del(chatOpened.sender);
             redis.del(chatOpened.receiver);
-               
+
             await chat.removeParticipants([chatOpened.agente.numero]);
-            
+
         } catch (error) {
             console.log(error)
         }
-        if('setSubject' in chat){
-            try{
+        if ('setSubject' in chat) {
+            try {
                 chat.setSubject(this.BACKUPGROUPNAME);
-                chat.archive(); 
+                chat.archive();
                 chat.revokeInvite();
             }
-                catch(e){}
-        } 
+            catch (e) { }
+        }
         return true;
-        
+
     }
     static async closeBotConversa(id_bot: string): Promise<void> {
         const r = await fetch(
             `https://backend.botconversa.com.br/api/v1/webhook/subscriber/${id_bot}/send_flow/`,
-            { 
+            {
                 method: 'POST',
-                body: JSON.stringify({ flow: Number(webhook.close.flowID) }), 
-                headers: {'Content-Type': 'application/json', "API-KEY":webhook.close.key} 
+                body: JSON.stringify({ flow: Number(webhook.close.flowID) }),
+                headers: { 'Content-Type': 'application/json', "API-KEY": webhook.close.key }
             }
-           
+
         );
         // console.log(r);
     }
     static async exportChat(chatOpenedGroup: ChatOpened): Promise<void> {
-        chatOpenedGroup.metaData.timeEnded = moment().tz("America/Sao_Paulo").format('YYYY-MM-DD HH:mm:ss') 
+        chatOpenedGroup.metaData.timeEnded = moment().tz("America/Sao_Paulo").format('YYYY-MM-DD HH:mm:ss')
         const r = await fetch(
             webhook.dump.url,
-            { 
+            {
                 method: 'POST',
-                body: JSON.stringify(chatOpenedGroup), 
-                headers: {'Content-Type': 'application/json', "API-KEY":webhook.dump.key} 
+                body: JSON.stringify(chatOpenedGroup),
+                headers: { 'Content-Type': 'application/json', "API-KEY": webhook.dump.key }
             }
-           
+
         );
         // console.log(r);
     }
 
-    static async  notifyAdmin(error: string):Promise<void> {
+    static async notifyAdmin(error: string): Promise<void> {
         const r = await fetch(
             webhook.error.url,
-            { 
+            {
                 method: 'POST',
-                body: JSON.stringify({message: error}), 
-                headers: {'Content-Type': 'application/json', "API-KEY":webhook.dump.key} 
+                body: JSON.stringify({ message: error }),
+                headers: { 'Content-Type': 'application/json', "API-KEY": webhook.dump.key }
             }
-           
+
         );
     }
-    static async updateChatOpened(chatOpened: ChatOpened): Promise<void>{
+    static async updateChatOpened(chatOpened: ChatOpened): Promise<void> {
         await redis.set(chatOpened.sender, JSON.stringify(chatOpened))
     }
-    
+
+}
+interface shortcut {
+    type: 'message' | 'end' | 'both';
+    entryPoint: string;
+    text?: string;
+    tag?: string;
+
 }
 export class Shortcut {
     static KEY = "#"
+    template = (tpl: string, args: any) => tpl.replace(/\${(\w+)}/g, (_, v) => args[v]);
 
-    private type : 'message' | 'end' | 'both'| null = null;
-    private hasEndTag: boolean = false;
-    private entryPoint: string;
+    private givenEntryPoint: string;
 
     private chatOpen: ChatOpened;
     private message: Message;
@@ -317,53 +328,110 @@ export class Shortcut {
     private client: Client;
     private redis: Redis;
 
+    shortcuts: shortcut[] = [
+        {
+            entryPoint: 'dia',
+            type: 'message',
+            text: "Bom dia ${nomeCliente}, como vai? Meu nome é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?"
+        },
+        {
+            entryPoint: 'tarde',
+            type: 'message',
+            text: "Boa tarde ${nomeCliente}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?"
+        }
+        ,
+        {
+            entryPoint: 'fim',
+            type: 'end',
+            tag: 'fim normal'
+            // text: "Boa tarde ${nomeCliente}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?"
+        }
+    ];
 
-    constructor(client: Client, redis: Redis, chatOpen: ChatOpened, message:Message, entryPoint: string) {
-    //    this.type = 'message'
-    //    this.hasEndTag = false;
-       this.entryPoint = entryPoint.replace(Shortcut.KEY, '');
+    constructor(client: Client, redis: Redis, chatOpen: ChatOpened, message: Message, entryPoint: string) {
 
-       this.chatOpen = chatOpen;
-       this.message = message;
-       
+        this.givenEntryPoint = entryPoint.replace(Shortcut.KEY, '');
 
-       if (!(client instanceof Client)) console.log('!(client instanceof Client) ERROR')
-       this.client = client;
+        this.chatOpen = chatOpen;
+        this.message = message;
 
-       if (!(redis instanceof Redis)) console.log('!(redis instanceof Redis) ERROR');
-       this.redis = redis;
+
+        if (!(client instanceof Client)) console.log('!(client instanceof Client) ERROR')
+        this.client = client;
+
+        if (!(redis instanceof Redis)) console.log('!(redis instanceof Redis) ERROR');
+        this.redis = redis;
 
 
     }
-    async end(): Promise<void>{
-        try{
-            const chat: GroupChat|any = await this.message.getChat();
-            if(!('leave' in chat))throw new Error('Chat is not group'); 
-            
-           await Functions.endChatGroup(this.chatOpen, chat , true );
-            // chat.leave();
-            // chat.delete();
-        }catch(e){
-            console.log(e)
-        };
-    
+    async check(): Promise<void> {
+        let hasShortcut: shortcut | false = false;
+        this.shortcuts.forEach(async (shortcut) => {
+            if (shortcut.entryPoint === this.givenEntryPoint) hasShortcut = shortcut;
+        })
+        if (!hasShortcut){
+            await this.message.react(Functions.EMOTE_ERROR);
+            return;
+        } 
+        await this.message.react(Functions.EMOTE_BOT);
+        
+        if(hasShortcut['type'] === 'message' || hasShortcut['type'] === 'both') await this.sendText(hasShortcut['text'], this.chatOpen.receiver);
+        if(hasShortcut['tag']) this.tag(hasShortcut['tag']);
+        if(hasShortcut['type'] === 'end'|| hasShortcut['type'] === 'both') this.end();
+
     }
-    async sendText( texto: string, sendTo: string): Promise<boolean>{
-        let options:MediaOptions = { sendAudioAsVoice: true}
-    
+    async sendText(text: string, sendTo: string): Promise<boolean> {
+        let options: MediaOptions = { sendAudioAsVoice: true }
+
+        const vars = {
+            'nomeAgente': this.chatOpen.agente.nome,
+            'nomeCliente': this.chatOpen.cliente.nome
+        }
+
+        text = this.template(
+            text, 
+            vars
+        )
         // client, texto, message, sendTo
-        try{
-            if(this.message.hasQuotedMsg){
+        try {
+            if (this.message.hasQuotedMsg) {
                 const quoted = await this.message.getQuotedMessage();
-                options.quotedMessageId =  quoted.id._serialized;
+                options.quotedMessageId = quoted.id._serialized;
             }
-            this.client.sendMessage(sendTo, texto, options);
+            this.client.sendMessage(sendTo, text, options);
             return true;
-        }catch(e){
+        } catch (e) {
             return false;
         };
-    
-    }
- 
 
+    }
+    async end(): Promise<void> {
+        try {
+            const chat: GroupChat | any = await this.message.getChat();
+            if (!('leave' in chat)) throw new Error('Chat is not group');
+
+            await Functions.endChatGroup(this.chatOpen, chat, true);
+            // chat.leave();
+            // chat.delete();
+        } catch (e) {
+            console.log(e)
+        };
+
+    }
+
+    async tag(tag: string): Promise<void> {
+        this.chatOpen.tag = tag;
+    }
+
+
+}
+export class VendasShortcut extends Shortcut {
+    constructor(client: Client, redis: Redis, chatOpen: ChatOpened, message: Message, entryPoint: string) {
+        super(client, redis, chatOpen, message, entryPoint);
+        this.shortcuts.push({
+            entryPoint: 'noite',
+            type: 'message',
+            text: "Boa noite ${nomeCliente}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?"
+        })
+    }
 }

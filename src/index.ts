@@ -1,19 +1,18 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const {getRedisChat,setGroupPicture,messageMediaOptions} = require("./functions");
 const qrcode = require('qrcode');
-const { shortcuts, emoteBot, emoteError, shortcutKey } = require("./shortcuts")
 const redis = require("./configs/redis");
 const moment = require('moment-timezone');
 
 import express, { Express, Request, Response } from 'express';
 import { Chat, WAState, Contact, Message, MessageMedia, GroupNotification, GroupChat } from 'whatsapp-web.js';
-import { ChatOpened, MediaOptions, Group,Functions } from './structs';
+import { ChatOpened, MediaOptions, Group,Functions,Shortcut,VendasShortcut } from './structs';
 
 let html: String = "<h3> Tudo de acordo </h3>";
 let CONNECTED_NUMBER: string;
 
 const client = new Client({
-    authStrategy: new LocalAuth({ clientId: "myreallself" }),
+    authStrategy: new LocalAuth({ clientId: "myself" }),
     puppeteer: {
         executablePath: '/usr/bin/google-chrome-stable',
     }
@@ -22,15 +21,23 @@ client.on('message', async (message: Message) => {
     const chatOpened: ChatOpened = await getRedisChat(message.from);
     const chat = await message.getChat();
 
+
     if (!(typeof chatOpened === 'object')) {
         console.log('Chat rejeitado')
         return;
     }
     const isGroup = (chatOpened.type === 'group');
+
     //SHORTCUTS
-    if (isGroup && message.body.startsWith(shortcutKey)) {
-        const shortcut = message.body.replace(/[^A-Za-z0-9]/g, '');
-        shortcuts(client, chatOpened, message, shortcut);
+    if (isGroup && message.body.startsWith(Shortcut.KEY)) {
+        switch(chatOpened.agente.setor){
+            case 'VENDAS':
+                new VendasShortcut(client,redis,chatOpened,message, message.body).check();
+                break;
+            default:
+                new Shortcut(client,redis,chatOpened,message, message.body).check();
+                break;
+        }
         return;
     }
     //EXCHANGE of messages
@@ -59,6 +66,7 @@ client.on('message', async (message: Message) => {
 
                 //image, video, audio, sticker   
                 if (message.hasMedia) {
+                    console.log(message)
                     const attachmentData = await message.downloadMedia();
 
                     if (message.hasQuotedMsg) {
@@ -77,9 +85,9 @@ client.on('message', async (message: Message) => {
         } catch (e) {
             console.error(e)
             if (isGroup) {
-                message.react(emoteError);
+                message.react(Functions.EMOTE_ERROR);
             } else if (chatOpened.type === "chat") {
-                client.sendMessage(chatOpened.receiver, emoteError + " MENSAGEM DO CLIENTE NAO ENVIADA");
+                client.sendMessage(chatOpened.receiver, Functions.EMOTE_ERROR + " MENSAGEM DO CLIENTE NAO ENVIADA");
             }
         }
     }
@@ -107,7 +115,7 @@ client.on('group_join', async (notification: GroupNotification) => {
     const allMessages: Message[] = await fetchChat.fetchMessages({ limit: 10, fromMe: false });
 
     const emoteMessage = "👉 "
-    let finalMessage: string = emoteBot + " *ULTIMAS MENSAGENS*\n\n";
+    let finalMessage: string = Functions.EMOTE_BOT + " *ULTIMAS MENSAGENS*\n\n";
 
     try {
         allMessages.forEach(async (oldMsg: Message) => {
@@ -150,7 +158,7 @@ client.on('group_join', async (notification: GroupNotification) => {
     } catch (e) {
         console.log(e)
         chatOpened.sentOldMsg = 'no'
-        client.sendMessage(chatOpened.sender, emoteError + " MENSAGENS DO CLIENTE NÃO ENVIADAS");
+        client.sendMessage(chatOpened.sender, Functions.EMOTE_ERROR + " MENSAGENS DO CLIENTE NÃO ENVIADAS");
     }
     Functions.updateChatOpened(chatOpened);
     //////
@@ -169,6 +177,8 @@ client.on('ready', async () => {
     // console.log(groups)
     console.log("ON") 
     CONNECTED_NUMBER = client.info.wid._serialized;
+
+
 
 });
 client.on('disconnected', async (reason: WAState | "NAVIGATION") => {
