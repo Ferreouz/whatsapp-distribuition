@@ -1,8 +1,7 @@
 import {ChatOpened} from './types';
 import { Client, Chat, GroupChat, GroupParticipant } from 'whatsapp-web.js';
 import { Redis } from 'ioredis';
-
-const redis = require("./configs/redis");
+import {redis} from "./configs/redis";
 
 export class Group {
     static BACKUPGROUPNAME = "esperando-ser-usado";

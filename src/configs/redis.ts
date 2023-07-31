@@ -1,10 +1,10 @@
 const { Redis } = require("ioredis")
 
-const config  = require( "./config")
+import * as config from "./config"
 
-const redis = new Redis({
+export const redis = new Redis({
   host: config.redis.host,
   port: config.redis.port,
   db: config.redis.db,
 })
-module.exports = redis
+// module.exports = redis

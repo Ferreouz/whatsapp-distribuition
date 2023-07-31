@@ -1,6 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
-const redis = require("./configs/redis");
+import {redis} from "./configs/redis";
 const moment = require('moment-timezone');
 
 import express, { Request, Response } from 'express';

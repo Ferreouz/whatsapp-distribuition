@@ -2,13 +2,13 @@ const dotenv = require("dotenv")
 
 dotenv.config()
 
-const config = {
-  redis: {
+
+  export const redis = {
     host: process.env.REDIS_HOST || "localhost",
     port: (process.env.REDIS_PORT) || 6379,
     db: (process.env.REDIS_DB) || 0,
-  },
-  webhook:{
+  };
+  export const webhook = {
     dump:{
       url:(process.env.DUMP_URL) || "",
       key:(process.env.DUMP_KEY) || "",
@@ -21,6 +21,5 @@ const config = {
       url:(process.env.ERROR_URL) || "",
     },
   }
-}
-
-module.exports = config
+ 
+// module.exports = config

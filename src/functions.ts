@@ -4,8 +4,7 @@ import { Redis } from 'ioredis';
 import fetch from 'node-fetch';
 import * as webhook from './configs/webhook';
 import {ChatOpened, MediaOptions} from './types';
-
-const redis = require("./configs/redis");
+import {redis} from "./configs/redis";
 const moment = require('moment-timezone');
 
 export class Functions {
