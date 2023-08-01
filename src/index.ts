@@ -193,7 +193,9 @@ client.on('ready', async () => {
 
 });
 client.on('disconnected', async (reason: WAState | "NAVIGATION") => {
-    console.log(reason)
+    console.log(reason);
+    await client.destroy();
+    process.exit(0);
 });
 client.on('group_leave', async (groupNotification: GroupNotification) => {
     const chatOpened: false | ChatOpened = await Functions.getRedisChat(groupNotification.chatId);
@@ -205,7 +207,11 @@ client.on('group_leave', async (groupNotification: GroupNotification) => {
     }
 
 });
-
+process.on("SIGINT", async () => {
+    console.log("(SIGINT) Shutting down...");
+    await client.destroy();
+    process.exit(0);
+})
 const app = express();
 app.use(express.json());
 app.get("/", async (req: Request, res: Response) => {
