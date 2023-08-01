@@ -10,7 +10,7 @@ import {Functions} from './functions';
 import {Group} from './group';
 import { Shortcut,VendasShortcut } from './shortcuts';
 
-let html: String = "<h3> Tudo de acordo </h3>";
+let html: String = "<h3> Gerando QR CODE.... </h3>";
 let CONNECTED_NUMBER: string;
 
 const client = new Client({
@@ -25,7 +25,7 @@ client.on('message', async (message: Message) => {
 
 
     if (!(typeof chatOpened === 'object')) {
-        console.log('Chat rejeitado')
+        // console.log('Chat rejeitado')
         return;
     }
     const isGroup = (chatOpened.type === 'group');
@@ -176,7 +176,7 @@ client.on('group_join', async (notification: GroupNotification) => {
 
 });
 client.on('ready', async () => {
-    html = "<h3> Tudo de acordo </h3>";
+    html = "<h3> CONECTADO✅ </h3>";
     // await client.sendMessage('553499679717@c.us', "teste numero");
     // const groups = await client.getChats();
     // groups.forEach(async (chat: Chat) => {
@@ -186,10 +186,8 @@ client.on('ready', async () => {
     //     }
     // });
     // console.log(groups)
-    console.log("ON") 
     CONNECTED_NUMBER = client.info.wid._serialized;
-
-
+    console.log("ON ", CONNECTED_NUMBER);
 
 });
 client.on('disconnected', async (reason: WAState | "NAVIGATION") => {
@@ -214,7 +212,8 @@ process.on("SIGINT", async () => {
 })
 const app = express();
 app.use(express.json());
-app.get("/", async (req: Request, res: Response) => {
+const TOKEN: string = "";
+app.get("/qr", async (req: Request, res: Response) => {
 
     res.set('Content-Type', 'text/html');
     res.set('Refresh', '5');
@@ -223,6 +222,12 @@ app.get("/", async (req: Request, res: Response) => {
 });
 app.post("/new", async (req: Request, res: Response) => {
     try {
+
+        const token: any = req.headers.api|| "";
+        if(token !== TOKEN){
+            console.log("Token Errado: ", token);
+            return res.sendStatus(401);
+        }
         const clienteNumber: string = req.body.clienteNumber;
         let clienteNome: string = req.body.clienteNome || "";
         const id_bot: string = req.body.id_bot;

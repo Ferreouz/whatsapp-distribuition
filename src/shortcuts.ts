@@ -52,7 +52,7 @@ export class Shortcut {
         {
             entryPoint: 'fim',
             type: 'end',
-            tag: 'fim normal'
+            tag: 'FIM'
         }
     ] 
     endWithMessageShortcuts: endWithMessageShortcut[] = [] 
@@ -87,7 +87,7 @@ export class Shortcut {
         await this.message.react(Functions.EMOTE_BOT);
         
         if(hasShortcut['type'] === 'message' || hasShortcut['type'] === 'both') await this.sendText(hasShortcut['text'], this.chatOpen.receiver);
-        if(hasShortcut['tag']) this.tag(hasShortcut['tag']);
+        if(hasShortcut['tag']) this.tag(hasShortcut['tag'] + this.givenEntryPoint.replace(hasShortcut['entryPoint'], ''));
         if(hasShortcut['type'] === 'end'|| hasShortcut['type'] === 'both') this.end();
 
     }
@@ -138,8 +138,14 @@ export class Shortcut {
 }
 export class VendasShortcut extends Shortcut {
 
-    endShortcuts: endShortcut[] = [
-        {
+    constructor(client: Client, chatOpen: ChatOpened, message: Message, entryPoint: string) {
+        super(client, chatOpen, message, entryPoint);
+        this.messageShortcuts.push({
+            entryPoint: 'noite',
+            type: 'message',
+            text: "Boa noite ${nomeCliente}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?"
+        });
+        this.endShortcuts.push({
             entryPoint: 'venda',
             type: 'end',
             tag: 'VENDA'
@@ -148,16 +154,7 @@ export class VendasShortcut extends Shortcut {
             entryPoint: 'lead',
             type: 'end',
             tag: 'LEAD'
-        },
-    ]
-
-    constructor(client: Client, chatOpen: ChatOpened, message: Message, entryPoint: string) {
-        super(client, chatOpen, message, entryPoint);
-        this.messageShortcuts.push({
-            entryPoint: 'noite',
-            type: 'message',
-            text: "Boa noite ${nomeCliente}, como vai? Aqui quem fala é ${nomeAgente} da RastrearSat👋. Em que posso te ajudar?"
-        })
+        });
     }
     async check(): Promise<void> {
         const patternVendas = new RegExp('^'+ this.endShortcuts[0].entryPoint, 'i')
