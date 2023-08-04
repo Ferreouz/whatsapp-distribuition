@@ -1,5 +1,5 @@
 
-import { Client, Chat, GroupChat, MessageMedia,} from 'whatsapp-web.js'
+import { Client, Chat, GroupChat, MessageMedia,Message} from 'whatsapp-web.js'
 import { Redis } from 'ioredis';
 import fetch from 'node-fetch';
 import * as webhook from './configs/webhook';
@@ -18,12 +18,14 @@ export class Functions {
 
             if (closeBot) this.closeBotConversa(chatOpened.cliente.id_bot);
 
+            const allMessages: Message[] = await chat.fetchMessages({});
+            chatOpened.metaData.msgCount = allMessages.length;
+            
             this.exportChat(chatOpened);
             redis.del(chatOpened.sender);
             redis.del(chatOpened.receiver);
 
             await chat.removeParticipants([chatOpened.agente.numero]);
-
         } catch (error) {
             console.log(error)
         }
