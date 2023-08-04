@@ -8,7 +8,7 @@ import { Chat, WAState, Contact, Message, GroupNotification } from 'whatsapp-web
 import {ChatOpened, MediaOptions} from './types';
 import {Functions} from './functions';
 import {Group} from './group';
-import { Shortcut,VendasShortcut } from './shortcuts';
+import { Shortcut,VendasShortcut,FinanceiroShortcut } from './shortcuts';
 
 let html: String = "<h3> Gerando QR CODE.... </h3>";
 let CONNECTED_NUMBER: string;
@@ -35,6 +35,9 @@ client.on('message', async (message: Message) => {
         switch(chatOpened.agente.setor){
             case 'VENDAS':
                 new VendasShortcut(client, chatOpened,message, message.body).check();
+                break;
+            case 'FINANCEIRO':
+                new FinanceiroShortcut(client, chatOpened,message, message.body).check();
                 break;
             default:
                 new Shortcut(client, chatOpened,message, message.body).check();

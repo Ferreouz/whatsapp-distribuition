@@ -172,3 +172,53 @@ export class VendasShortcut extends Shortcut {
    
 
 }
+export class FinanceiroShortcut extends Shortcut {
+
+    messageShortcuts: messageShortcut[] = [
+        {
+            entryPoint: 'dia',
+            type: 'message',
+            text: `Bom dia!\nEm que posso ajudar?\nFavor informar nome completo e cpf.`
+        },
+        {
+            entryPoint: 'anual',
+            type: 'message',
+            text: "Como o Sr(a) gostaria de realizar a sua renovação anual?\nRenovando no cartão de crédito pagando R$418,80 em 12x de R$34,90 sem juros, ou no boleto bancário R$478,80  em 12x de R$39,90."
+        },
+        {
+            entryPoint: 'comercial',
+            type: 'message',
+            text: "Para falar com nossa equipe de consultores, favor entrar em contato através dos números abaixo.\n\nRenan\nComercial\n83 996271778\nsegunda a sexta das 08h as 17h\nsabado das 08h as 12h\n\nComercial\n83 996271778\n83 993684260\nsegunda a sexta das 08h as 17h\nsabado das 08h as 12h"
+        },
+        {
+            entryPoint: 'suporte',
+            type: 'message',
+            text: "Para assuntos técnicos, favor entrar em contato com nosso suporte através dos números abaixo.\n\nSuporte Técnico\n83 998237731\nsegunda a sexta das 08h as 17h\nsabado das 08h as 12h\n\nSuporte 24h em caso de roubo\n83 996271778\n83 993684260"
+        },
+        {
+            entryPoint: 'pix',
+            type: 'message',
+            text: "Segue chave PIX\nCNPJ 15521996000158\n\nRastrear Sat\n\nMauricio Almeida de Lucena"
+        },
+
+       
+    ];
+    constructor(client: Client, chatOpen: ChatOpened, message: Message, entryPoint: string) {
+        super(client, chatOpen, message, entryPoint);
+    }
+    // async check(): Promise<void> {
+    //     const patternVendas = new RegExp('^'+ this.endShortcuts[0].entryPoint, 'i')
+    //     if (patternVendas.test(this.givenEntryPoint)){
+    //         const tag = 'VENDA' + this.givenEntryPoint.replace(/venda/i, '');
+    //         await this.message.react(Functions.EMOTE_BOT);
+    //         this.tag(tag);
+    //         this.end();
+    //         return;
+    //     }
+ 
+    //     super.check();
+
+    // }
+   
+
+}
