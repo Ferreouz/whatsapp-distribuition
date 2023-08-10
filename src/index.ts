@@ -283,6 +283,25 @@ app.get("/healthz", async (req: Request, res: Response) => {
     res.send({"status":retorno, "CONNECTED_NUMBER": CONNECTED_NUMBER});
 
 });
+app.post("/close", async (req: Request, res: Response) => {
+    try {
+        const token: any = req.headers.api|| "";
+        if(token !== TOKEN){
+            console.log("Token Errado: ", token);
+            return res.sendStatus(401);
+        }
+        const group: string = req.body.group;
+        const chatOpened: ChatOpened| false = await Functions.getRedisChat(group);
+        const chat = await client.getChatById(group);
+        if(!chatOpened || !chat){
+            return res.sendStatus(400);
+        }
+        Functions.endChatGroup(chatOpened,chat,true);
+    } catch (error) {
+    }
+    res.send({"status":"OK"});
+
+});
 
 client.initialize();
 app.listen(3001, '0.0.0.0');
