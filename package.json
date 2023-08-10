@@ -31,6 +31,6 @@
     "npm": "^9.8.1",
     "puppeteer": "^21.0.2",
     "qrcode": "^1.5.3",
-    "whatsapp-web.js": "^1.21.1-alpha.1"
+    "whatsapp-web.js": "^1.21.1"
   }
 }

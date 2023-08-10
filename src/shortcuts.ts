@@ -32,7 +32,7 @@ export class Shortcut {
     protected givenEntryPoint: string;
 
     protected chatOpen: ChatOpened;
-    protected message: Message|any;
+    protected message: Message;
     protected client: Client;
 
     messageShortcuts: messageShortcut[] = [

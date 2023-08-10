@@ -87,11 +87,11 @@ export class Group {
             const clienteNumber = this.clientChat.sender.replace(/\D/g, '');
             const subject = this.agentChat.cliente.nome + " " + clienteNumber.slice(2);
 
-            const newGroup: any = {}//await this.client.createGroup(subject, [this.CONNECT_NUMBER]).catch(err => this.setError("ERRO AO CRIAR GRUPO COM CONTATO", false, err))
+            const newGroup: any = await this.client.createGroup(subject, [this.CONNECT_NUMBER]).catch(err => this.setError("ERRO AO CRIAR GRUPO COM CONTATO", false, err))
             // console.log("GROUP CREATED: ", newGroup)
        
-            //Group not created
-            // if ((typeof newGroup !== 'object') || !('gid' in newGroup)) {
+            // Group not created
+            if ((typeof newGroup !== 'object') || !('gid' in newGroup)) {
                 const backupGroup = await this.getBackupGroup();
                 // console.log("BACKUP GROUP: ", backupGroup)
 
@@ -103,15 +103,15 @@ export class Group {
                 this.groupChat.setSubject(subject);
                 if (this.groupChat.archived) this.groupChat.unarchive();
 
-            // } 
-            // else {
-            //     const chat: GroupChat | null = await this.getGroupById((newGroup.gid as any)._serialized);
-            //     if (!chat) {
-            //         this.setError('NOT ABLE TO GET GROUP BY ID', true)
-            //         return;
-            //     }
-            //     this.groupChat = chat;
-            // }
+            } 
+            else {
+                const chat: GroupChat | null = await this.getGroupById((newGroup.gid as any)._serialized);
+                if (!chat) {
+                    this.setError('NOT ABLE TO GET GROUP BY ID', true)
+                    return;
+                }
+                this.groupChat = chat;
+            }
 
             /*ANOTHER ATTEMPT TO ADD AGENT*/
             const participants = this.groupChat.participants;
