@@ -85,11 +85,11 @@ export class Group {
     async createNewGroup(): Promise<void> {
         try {
             const clienteNumber = this.clientChat.sender.replace(/\D/g, '');
-            const subject = this.agentChat.cliente.nome;
+            const subject = this.agentChat.cliente.nome + " " + clienteNumber.slice(2);
 
-            const newGroup = await this.client.createGroup(subject, [this.CONNECT_NUMBER]).catch(err => this.setError("ERRO AO CRIAR GRUPO COM CONTATO", false, err))
+            const newGroup: any = {}//await this.client.createGroup(subject, [this.CONNECT_NUMBER]).catch(err => this.setError("ERRO AO CRIAR GRUPO COM CONTATO", false, err))
             // console.log("GROUP CREATED: ", newGroup)
-
+       
             //Group not created
             if ((typeof newGroup !== 'object') || !('gid' in newGroup)) {
                 const backupGroup = await this.getBackupGroup();

@@ -19,7 +19,7 @@ const client = new Client({
         executablePath: '/usr/bin/google-chrome-stable',
     }
 });
-client.on('message', async (message: Message) => {
+client.on('message', async (message: Message|any) => {
     const chatOpened: ChatOpened| false = await Functions.getRedisChat(message.from);
     const chat = await message.getChat();
 
@@ -120,7 +120,7 @@ client.on('group_join', async (notification: GroupNotification) => {
     if('sentOldMsg' in chatOpened) return;
 
     const fetchChat: Chat = await client.getChatById(chatOpened.receiver);
-    const allMessages: Message[] = await fetchChat.fetchMessages({ limit: 10, fromMe: false });
+    const allMessages: Message[] = await fetchChat.fetchMessages({ limit: 10 });
 
     const emoteMessage = "👉 "
     let finalMessage: string = Functions.EMOTE_BOT + " *ULTIMAS MENSAGENS*\n\n";

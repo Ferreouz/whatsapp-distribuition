@@ -87,7 +87,7 @@ export class Functions {
         
         return chatOpened;
     }
-    static async setGroupPicture(client: Client, chat: Chat|GroupChat, chatOpened: ChatOpened){
+    static async setGroupPicture(client: Client, chat: Chat|GroupChat|any, chatOpened: ChatOpened){
         try {
             const url = await client.getProfilePicUrl(chatOpened.receiver);
             const media:MessageMedia = await MessageMedia.fromUrl(url);
