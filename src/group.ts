@@ -169,6 +169,7 @@ export class Group {
                 return false;
             } else return true;
         })
+        console.log('backupCOunt: ', allchats.length);
         return chosenChat;
     }
     async getGroupById(groupID: string): Promise<GroupChat | null> {
