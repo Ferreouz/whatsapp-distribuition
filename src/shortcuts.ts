@@ -154,6 +154,12 @@ export class VendasShortcut extends Shortcut {
             entryPoint: 'lead',
             type: 'end',
             tag: 'LEAD'
+        }
+        ,
+        {
+            entryPoint: 'seminteresse',
+            type: 'end',
+            tag: 'SEMINTERESSE'
         });
     }
     async check(): Promise<void> {

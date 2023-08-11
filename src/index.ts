@@ -321,7 +321,17 @@ app.post("/close", async (req: Request, res: Response) => {
     res.send({"status":"OK"});
 
 });
+app.get("/all-groups", async (req: Request, res: Response) => {
 
+    let retorno: any; 
+    try {
+        
+    } catch (error) {
+        retorno = error;
+    }
+    res.send({"groups":retorno,});
+
+});
 
 
 client.initialize();
